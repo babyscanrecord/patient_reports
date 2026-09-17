@@ -8,8 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Supabase JS Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- JSZip for in-browser multi-file zipping -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
@@ -73,8 +71,8 @@
                     <p class="text-teal-100 text-xs mt-1">Enter Patient ID and Name as printed on your report</p>
                 </div>
 
-                <!-- Form -->
-                <form id="searchForm" class="p-8 space-y-5">
+                <!-- Form with onsubmit preventDefault -->
+                <form id="searchForm" onsubmit="return handleFormSubmit(event)" class="p-8 space-y-5">
                     
                     <!-- Alert Message Container -->
                     <div id="alertBox" class="hidden p-4 rounded-2xl flex items-start space-x-3 text-sm">
@@ -215,8 +213,78 @@
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhieGx6dXB0aXF5ZXlnd3lvdHFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDU5MDYsImV4cCI6MjEwNTIyMTkwNn0.PN3p4fhJ9UUPu4xwEJsRyLlYRCZhPiLxz43AABbuxP0";
         const SUPABASE_BUCKET = "patient-reports";
 
-        // Initialize Supabase Client directly in browser
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // =========================================================================
+        // 🚀 NATIVE REST & STORAGE SUPABASE CLIENT (Zero external bundle failures)
+        // =========================================================================
+        class SupabaseDirectClient {
+            constructor(baseUrl, key) {
+                this.baseUrl = baseUrl.replace(/\/$/, "");
+                this.key = key;
+                this.authHeaders = {
+                    "apikey": this.key,
+                    "Authorization": `Bearer ${this.key}`
+                };
+            }
+
+            async getReportsByFileId(fileId) {
+                // Queries public.patient_reports via PostgREST endpoint
+                const url = `${this.baseUrl}/rest/v1/patient_reports?file_id=ilike.${encodeURIComponent(fileId)}&order=created_at.desc`;
+                const res = await fetch(url, {
+                    method: "GET",
+                    headers: {
+                        ...this.authHeaders,
+                        "Accept": "application/json"
+                    }
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.message || `Database error (HTTP ${res.status})`);
+                }
+                return await res.json();
+            }
+
+            async downloadBlob(bucket, storagePath) {
+                // Direct file retrieval from Supabase Storage
+                const cleanPath = encodeURIComponent(storagePath).replace(/%2F/g, "/");
+                const url = `${this.baseUrl}/storage/v1/object/${bucket}/${cleanPath}`;
+                const res = await fetch(url, {
+                    method: "GET",
+                    headers: this.authHeaders
+                });
+
+                if (!res.ok) {
+                    throw new Error(`Could not access file in storage (HTTP ${res.status})`);
+                }
+                return await res.blob();
+            }
+
+            async createSignedUrl(bucket, storagePath, expiresIn = 300) {
+                const cleanPath = encodeURIComponent(storagePath).replace(/%2F/g, "/");
+                const url = `${this.baseUrl}/storage/v1/object/sign/${bucket}/${cleanPath}`;
+                const res = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        ...this.authHeaders,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ expiresIn })
+                });
+
+                if (!res.ok) {
+                    throw new Error(`Signed URL generation failed (HTTP ${res.status})`);
+                }
+                const data = await res.json();
+                return `${this.baseUrl}/storage/v1${data.signedURL}`;
+            }
+
+            getPublicUrl(bucket, storagePath) {
+                const cleanPath = encodeURIComponent(storagePath).replace(/%2F/g, "/");
+                return `${this.baseUrl}/storage/v1/object/public/${bucket}/${cleanPath}`;
+            }
+        }
+
+        const supabase = new SupabaseDirectClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // DOM Elements
         const searchForm = document.getElementById("searchForm");
@@ -238,9 +306,11 @@
 
         let currentActiveReports = [];
 
-        // Search Form Submission
-        searchForm.addEventListener("submit", async function(e) {
-            e.preventDefault();
+        // Main Search Form Submission Handler
+        async function handleFormSubmit(e) {
+            if (e && e.preventDefault) {
+                e.preventDefault();
+            }
 
             alertBox.classList.add("hidden");
             resultsCard.classList.add("hidden");
@@ -249,7 +319,10 @@
             const first_name = document.getElementById("first_name").value.trim().toLowerCase();
             const last_name = document.getElementById("last_name").value.trim().toLowerCase();
 
-            if (!file_id || !first_name || !last_name) return;
+            if (!file_id || !first_name || !last_name) {
+                showAlert("Missing Information", "Please enter Patient ID, First Name, and Last Name.", "red");
+                return false;
+            }
 
             // UI Loading state
             searchBtn.disabled = true;
@@ -258,30 +331,16 @@
             searchIcon.classList.add("hidden");
 
             try {
-                // 1. Query Supabase directly (case-insensitive for file_id)
-                const { data: records, error } = await supabase
-                    .from("patient_reports")
-                    .select("*")
-                    .ilike("file_id", file_id)
-                    .order("created_at", { ascending: false });
-
-                if (error) {
-                    console.error("Supabase Query Error:", error);
-                    showAlert(
-                        "Database Error",
-                        `Could not retrieve records: ${error.message || "Please check database connection"}`,
-                        "red"
-                    );
-                    return;
-                }
+                // 1. Query Supabase directly (case-insensitive)
+                const records = await supabase.getReportsByFileId(file_id);
 
                 if (!records || records.length === 0) {
                     showAlert(
                         "Report Not Found",
-                        `No report matches Patient ID "${file_id}". Please check the Patient ID on your report.`,
+                        `No report found for Patient ID "${file_id}". Please check the ID printed on your report.`,
                         "red"
                     );
-                    return;
+                    return false;
                 }
 
                 // 2. Name Matching
@@ -297,10 +356,10 @@
                 if (matchingRecords.length === 0) {
                     showAlert(
                         "Name Mismatch",
-                        `Patient ID "${file_id}" was found, but the First or Last Name did not match our records. Please verify spelling.`,
+                        `Patient ID "${file_id}" was found, but the First or Last Name does not match our records. Please verify spelling.`,
                         "red"
                     );
-                    return;
+                    return false;
                 }
 
                 // 3. Check 24-Hour (1 Day) Expiration Limit
@@ -315,10 +374,10 @@
                 if (activeReports.length === 0) {
                     showAlert(
                         "Report Expired",
-                        "Your report download window has expired (available for 24 hours only). Please contact the clinic for assistance.",
+                        "Your report download window has expired (available for 24 hours from visit). Please contact the clinic for assistance.",
                         "amber"
                     );
-                    return;
+                    return false;
                 }
 
                 // 4. Render Active Reports
@@ -329,7 +388,7 @@
                 console.error("Supabase Search Error:", err);
                 showAlert(
                     "Connection Error",
-                    `Unable to query records: ${err.message || "Please verify your internet connection."}`,
+                    `Could not query database: ${err.message || "Please verify your internet connection."}`,
                     "red"
                 );
             } finally {
@@ -338,7 +397,12 @@
                 searchSpinner.classList.add("hidden");
                 searchIcon.classList.remove("hidden");
             }
-        });
+
+            return false;
+        }
+
+        // Attach event listener to form as well
+        searchForm.addEventListener("submit", handleFormSubmit);
 
         function renderResults(patientInfo, reports) {
             resPatientName.textContent = patientInfo.full_name || `${document.getElementById("first_name").value} ${document.getElementById("last_name").value}`;
@@ -368,7 +432,7 @@
                     <button 
                         id="dl-btn-${index}"
                         onclick="downloadSingleReport('${report.storage_path}', '${escapeHTML(report.filename)}', 'dl-btn-${index}')"
-                        class="btn-babyscan text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition-all flex items-center space-x-1.5"
+                        class="btn-babyscan text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition-all flex items-center space-x-1.5 cursor-pointer"
                     >
                         <i class="fa-solid fa-download"></i>
                         <span>Download</span>
@@ -390,58 +454,38 @@
             }
 
             try {
-                // Method 1: Download directly as Blob (guarantees direct file download on all browsers)
-                const { data: blob, error: dlError } = await supabase.storage
-                    .from(SUPABASE_BUCKET)
-                    .download(storagePath);
+                // Method 1: Download directly as Blob (100% reliable across desktop & mobile)
+                const blob = await supabase.downloadBlob(SUPABASE_BUCKET, storagePath);
+                const blobUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.style.display = "none";
+                a.href = blobUrl;
+                a.download = filename || "ultrasound_report.pdf";
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    a.remove();
+                    window.URL.revokeObjectURL(blobUrl);
+                }, 2000);
 
-                if (!dlError && blob) {
-                    const blobUrl = window.URL.createObjectURL(blob);
+            } catch (err) {
+                console.warn("Direct blob download failed, trying signed URL fallback...", err);
+                try {
+                    // Method 2 (Fallback): Signed URL
+                    const signedUrl = await supabase.createSignedUrl(SUPABASE_BUCKET, storagePath, 300);
                     const a = document.createElement("a");
                     a.style.display = "none";
-                    a.href = blobUrl;
-                    a.download = filename || "ultrasound_report.pdf";
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(() => {
-                        a.remove();
-                        window.URL.revokeObjectURL(blobUrl);
-                    }, 2000);
-                    return;
-                }
-
-                // Method 2 (Fallback): Signed URL with download trigger
-                const { data: signedData, error: signError } = await supabase.storage
-                    .from(SUPABASE_BUCKET)
-                    .createSignedUrl(storagePath, 300, { download: filename || true });
-
-                if (!signError && signedData && signedData.signedUrl) {
-                    const a = document.createElement("a");
-                    a.style.display = "none";
-                    a.href = signedData.signedUrl;
+                    a.href = signedUrl;
                     a.download = filename || "ultrasound_report.pdf";
                     a.target = "_blank";
                     document.body.appendChild(a);
                     a.click();
                     setTimeout(() => a.remove(), 2000);
-                    return;
+                } catch (fallbackErr) {
+                    console.error("Signed URL fallback error:", fallbackErr);
+                    const publicUrl = supabase.getPublicUrl(SUPABASE_BUCKET, storagePath);
+                    window.open(publicUrl, "_blank");
                 }
-
-                // Method 3 (Fallback): Direct Public URL
-                const { data: publicData } = supabase.storage
-                    .from(SUPABASE_BUCKET)
-                    .getPublicUrl(storagePath, { download: filename || true });
-
-                if (publicData && publicData.publicUrl) {
-                    window.open(publicData.publicUrl, "_blank");
-                    return;
-                }
-
-                throw new Error(dlError?.message || signError?.message || "Storage access error");
-
-            } catch (err) {
-                console.error("Download error:", err);
-                alert("Could not download report PDF: " + (err.message || "Please check storage permissions."));
             } finally {
                 if (btn) {
                     btn.innerHTML = originalHTML;
@@ -450,7 +494,7 @@
             }
         }
 
-        // Download All as ZIP (In-browser zipping)
+        // Download All as ZIP
         downloadAllBtn.addEventListener("click", async function() {
             if (!currentActiveReports || currentActiveReports.length === 0) return;
 
@@ -458,15 +502,18 @@
             downloadAllBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Zipping...`;
 
             try {
+                if (typeof JSZip === "undefined") {
+                    throw new Error("ZIP tool is initializing. Please download scans individually.");
+                }
                 const zip = new JSZip();
 
                 for (const report of currentActiveReports) {
-                    const { data, error } = await supabase.storage
-                        .from(SUPABASE_BUCKET)
-                        .download(report.storage_path);
-
-                    if (error) continue;
-                    zip.file(report.filename || `${report.study_type}.pdf`, data);
+                    try {
+                        const blob = await supabase.downloadBlob(SUPABASE_BUCKET, report.storage_path);
+                        zip.file(report.filename || `${report.study_type}.pdf`, blob);
+                    } catch (e) {
+                        console.warn("Could not add report to zip:", report.filename, e);
+                    }
                 }
 
                 const content = await zip.generateAsync({ type: "blob" });
@@ -476,12 +523,14 @@
                 a.download = `${resFileId.textContent}_All_Reports.zip`;
                 document.body.appendChild(a);
                 a.click();
-                a.remove();
-                window.URL.revokeObjectURL(url);
+                setTimeout(() => {
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                }, 2000);
 
             } catch (err) {
                 console.error("ZIP error:", err);
-                alert("Failed to bundle reports into ZIP.");
+                alert("Failed to create ZIP: " + err.message);
             } finally {
                 downloadAllBtn.disabled = false;
                 downloadAllBtn.innerHTML = `<i class="fa-solid fa-file-zipper"></i> <span>Download All as ZIP</span>`;
@@ -505,6 +554,7 @@
             }
             alertTitle.textContent = title;
             alertMessage.textContent = message;
+            alertBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
         }
 
         function escapeHTML(str) {
