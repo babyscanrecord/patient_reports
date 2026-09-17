@@ -390,9 +390,19 @@
                     return;
                 }
 
-                // 4. Render Active Reports
-                currentActiveReports = activeReports;
-                renderResults(matchingRecords[0], activeReports);
+                // 4. Deduplicate by study_type (guarantees latest corrected scan replaces previous upload)
+                const uniqueByStudy = new Map();
+                for (const report of activeReports) {
+                    const key = (report.study_type || "ULTRASOUND_SCAN").trim().toUpperCase();
+                    if (!uniqueByStudy.has(key)) {
+                        uniqueByStudy.set(key, report);
+                    }
+                }
+                const deduplicatedReports = Array.from(uniqueByStudy.values());
+
+                // 5. Render Active Reports
+                currentActiveReports = deduplicatedReports;
+                renderResults(matchingRecords[0], deduplicatedReports);
 
             } catch (err) {
                 console.error("Supabase Search Error:", err);
