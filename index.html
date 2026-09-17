@@ -258,19 +258,27 @@
             searchIcon.classList.add("hidden");
 
             try {
-                // 1. Query Supabase directly
+                // 1. Query Supabase directly (case-insensitive for file_id)
                 const { data: records, error } = await supabase
                     .from("patient_reports")
                     .select("*")
-                    .eq("file_id", file_id)
+                    .ilike("file_id", file_id)
                     .order("created_at", { ascending: false });
 
-                if (error) throw error;
+                if (error) {
+                    console.error("Supabase Query Error:", error);
+                    showAlert(
+                        "Database Error",
+                        `Could not retrieve records: ${error.message || "Please check database connection"}`,
+                        "red"
+                    );
+                    return;
+                }
 
                 if (!records || records.length === 0) {
                     showAlert(
                         "Report Not Found",
-                        `No report matches Patient ID "${file_id}". Please check your report.`,
+                        `No report matches Patient ID "${file_id}". Please check the Patient ID on your report.`,
                         "red"
                     );
                     return;
@@ -282,13 +290,14 @@
                     const rowLast = (r.last_name || "").trim().toLowerCase();
                     const rowFull = (r.full_name || "").trim().toLowerCase();
                     return (rowFirst === first_name && rowLast === last_name) ||
+                           (rowFirst.includes(first_name) && rowLast.includes(last_name)) ||
                            (rowFull.includes(first_name) && rowFull.includes(last_name));
                 });
 
                 if (matchingRecords.length === 0) {
                     showAlert(
                         "Name Mismatch",
-                        `Patient ID "${file_id}" exists, but the First or Last Name did not match our records. Please verify spelling.`,
+                        `Patient ID "${file_id}" was found, but the First or Last Name did not match our records. Please verify spelling.`,
                         "red"
                     );
                     return;
@@ -320,7 +329,7 @@
                 console.error("Supabase Search Error:", err);
                 showAlert(
                     "Connection Error",
-                    "Could not connect to the cloud database. Please verify your internet connection.",
+                    `Unable to query records: ${err.message || "Please verify your internet connection."}`,
                     "red"
                 );
             } finally {
@@ -370,39 +379,74 @@
 
             resultsCard.classList.remove("hidden");
             resultsCard.scrollIntoView({ behavior: "smooth" });
-
-            // If only 1 report, trigger direct download
-            if (reports.length === 1) {
-                downloadSingleReport(reports[0].storage_path, reports[0].filename, "dl-btn-0");
-            }
         }
 
         async function downloadSingleReport(storagePath, filename, btnId) {
             const btn = document.getElementById(btnId);
             const originalHTML = btn ? btn.innerHTML : "";
-            if (btn) btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i>`;
+            if (btn) {
+                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Downloading...`;
+                btn.disabled = true;
+            }
 
             try {
-                // Generate 60-second signed download URL from Supabase Storage
-                const { data, error } = await supabase.storage
+                // Method 1: Download directly as Blob (guarantees direct file download on all browsers)
+                const { data: blob, error: dlError } = await supabase.storage
                     .from(SUPABASE_BUCKET)
-                    .createSignedUrl(storagePath, 60);
+                    .download(storagePath);
 
-                if (error) throw error;
-
-                if (data && data.signedUrl) {
+                if (!dlError && blob) {
+                    const blobUrl = window.URL.createObjectURL(blob);
                     const a = document.createElement("a");
-                    a.href = data.signedUrl;
-                    a.download = filename || "report.pdf";
+                    a.style.display = "none";
+                    a.href = blobUrl;
+                    a.download = filename || "ultrasound_report.pdf";
                     document.body.appendChild(a);
                     a.click();
-                    a.remove();
+                    setTimeout(() => {
+                        a.remove();
+                        window.URL.revokeObjectURL(blobUrl);
+                    }, 2000);
+                    return;
                 }
+
+                // Method 2 (Fallback): Signed URL with download trigger
+                const { data: signedData, error: signError } = await supabase.storage
+                    .from(SUPABASE_BUCKET)
+                    .createSignedUrl(storagePath, 300, { download: filename || true });
+
+                if (!signError && signedData && signedData.signedUrl) {
+                    const a = document.createElement("a");
+                    a.style.display = "none";
+                    a.href = signedData.signedUrl;
+                    a.download = filename || "ultrasound_report.pdf";
+                    a.target = "_blank";
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => a.remove(), 2000);
+                    return;
+                }
+
+                // Method 3 (Fallback): Direct Public URL
+                const { data: publicData } = supabase.storage
+                    .from(SUPABASE_BUCKET)
+                    .getPublicUrl(storagePath, { download: filename || true });
+
+                if (publicData && publicData.publicUrl) {
+                    window.open(publicData.publicUrl, "_blank");
+                    return;
+                }
+
+                throw new Error(dlError?.message || signError?.message || "Storage access error");
+
             } catch (err) {
                 console.error("Download error:", err);
-                alert("Could not download PDF. Please try again or contact clinic.");
+                alert("Could not download report PDF: " + (err.message || "Please check storage permissions."));
             } finally {
-                if (btn) btn.innerHTML = originalHTML;
+                if (btn) {
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                }
             }
         }
 
