@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Ultrasound Reports - Baby Scan Fetal Medicine</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- JSZip for in-browser multi-file zipping -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        medical: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col justify-between font-sans text-slate-800">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 py-4 px-6 shadow-sm">
+        <div class="max-w-5xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-medical-700 to-medical-500 text-white p-2.5 rounded-xl shadow-md">
+                    <i class="fa-solid fa-baby text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 tracking-tight">BABY SCAN FETAL MEDICINE</h1>
+                    <p class="text-xs text-slate-500 font-medium">Gynec Imaging & Fetal Ultrasound Center</p>
+                </div>
+            </div>
+            <div class="hidden sm:flex items-center text-xs text-slate-500 space-x-2 bg-slate-100 px-3 py-1.5 rounded-full">
+                <i class="fa-solid fa-clock-rotate-left text-amber-600"></i>
+                <span>24-Hour Online Retention Window</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow flex items-center justify-center px-4 py-10">
+        <div class="max-w-lg w-full space-y-6">
+
+            <!-- Search Card -->
+            <div class="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden transition-all duration-300">
+                <!-- Card Header -->
+                <div class="bg-gradient-to-r from-medical-700 via-medical-600 to-medical-800 px-8 py-7 text-center text-white relative">
+                    <h2 class="text-2xl font-bold">Download Ultrasound Report</h2>
+                    <p class="text-medical-100 text-xs mt-1">Enter your Patient ID and Name as printed on your receipt</p>
+                </div>
+
+                <!-- Form -->
+                <form id="searchForm" class="p-8 space-y-5">
+                    
+                    <!-- Alert Message Container -->
+                    <div id="alertBox" class="hidden p-4 rounded-2xl flex items-start space-x-3 text-sm">
+                        <span id="alertIcon" class="mt-0.5 text-lg"></span>
+                        <div class="flex-1">
+                            <p id="alertTitle" class="font-bold"></p>
+                            <p id="alertMessage" class="mt-0.5 text-xs opacity-90 leading-relaxed"></p>
+                        </div>
+                    </div>
+
+                    <!-- Input: Patient ID -->
+                    <div class="space-y-1.5">
+                        <label for="file_id" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Patient ID / Bill Number <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-id-card"></i>
+                            </div>
+                            <input 
+                                type="text" 
+                                id="file_id" 
+                                required
+                                placeholder="e.g. B1726 or B1531" 
+                                class="block w-full pl-11 pr-4 py-3.5 border border-slate-200 rounded-2xl bg-slate-50 uppercase text-slate-900 text-sm font-semibold tracking-wide placeholder-normal focus:outline-none focus:ring-2 focus:ring-medical-600 focus:bg-white transition-all"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- First & Last Name Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label for="first_name" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                First Name <span class="text-red-500">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="first_name" 
+                                required
+                                placeholder="e.g. BHAGYASHREE" 
+                                class="block w-full px-4 py-3.5 border border-slate-200 rounded-2xl bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-medical-600 focus:bg-white transition-all"
+                            >
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label for="last_name" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                Last Name <span class="text-red-500">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="last_name" 
+                                required
+                                placeholder="e.g. VAISHY" 
+                                class="block w-full px-4 py-3.5 border border-slate-200 rounded-2xl bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-medical-600 focus:bg-white transition-all"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- 24-Hour Notice Banner -->
+                    <div class="flex items-start space-x-2.5 p-3.5 bg-amber-50 rounded-2xl border border-amber-200/70 text-amber-900">
+                        <i class="fa-solid fa-circle-info text-amber-600 mt-0.5 text-sm"></i>
+                        <p class="text-xs leading-normal">
+                            <strong>Confidentiality Notice:</strong> Diagnostic scan reports are available for download for <strong>24 hours</strong> from creation date.
+                        </p>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button 
+                        type="submit" 
+                        id="searchBtn"
+                        class="w-full bg-gradient-to-r from-medical-600 to-medical-700 hover:from-medical-700 hover:to-medical-800 text-white font-bold py-4 px-6 rounded-2xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-medical-600 focus:ring-offset-2 transition-all flex items-center justify-center space-x-2"
+                    >
+                        <span id="searchBtnText">Find Ultrasound Reports</span>
+                        <i id="searchSpinner" class="fa-solid fa-spinner fa-spin hidden"></i>
+                        <i id="searchIcon" class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Results Card (Multi-Report Support) -->
+            <div id="resultsCard" class="hidden bg-white rounded-3xl shadow-xl border border-slate-100 p-8 space-y-6">
+                <div class="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 mb-1">
+                            <i class="fa-solid fa-circle-check mr-1.5 text-xs"></i> Verified Patient
+                        </span>
+                        <h3 id="resPatientName" class="text-lg font-bold text-slate-900"></h3>
+                        <p class="text-xs text-slate-500">Patient ID: <span id="resFileId" class="font-semibold text-medical-700"></span></p>
+                    </div>
+                    <button 
+                        id="downloadAllBtn"
+                        class="hidden text-xs bg-medical-50 hover:bg-medical-100 text-medical-700 border border-medical-200 font-bold px-4 py-2.5 rounded-xl transition-all flex items-center justify-center space-x-1.5"
+                    >
+                        <i class="fa-solid fa-file-zipper"></i>
+                        <span>Download All as ZIP</span>
+                    </button>
+                </div>
+
+                <!-- Reports List Container -->
+                <div class="space-y-3">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Available Scans</p>
+                    <div id="reportsList" class="space-y-3">
+                        <!-- Injected dynamically via JS -->
+                    </div>
+                </div>
+
+                <button 
+                    id="newSearchBtn"
+                    class="w-full text-center text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors pt-2"
+                >
+                    <i class="fa-solid fa-arrow-rotate-left mr-1"></i> Search for Another Patient
+                </button>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400">
+        <p>&copy; 2026 Baby Scan Fetal Medicine & Gynec Imaging. All rights reserved.</p>
+        <p class="text-[11px] text-slate-400 mt-0.5">Secure Cloud Report Delivery Node</p>
+    </footer>
+
+    <!-- Configuration & Client Logic -->
+    <script>
+        // =========================================================================
+        // ⚙️ SUPABASE CONFIGURATION (Paste your credentials below)
+        // =========================================================================
+        const SUPABASE_URL = "https://xbxlzuptiqyeygwyotqd.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhieGx6dXB0aXF5ZXlnd3lvdHFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDU5MDYsImV4cCI6MjEwNTIyMTkwNn0.PN3p4fhJ9UUPu4xwEJsRyLlYRCZhPiLxz43AABbuxP0";
+        const SUPABASE_BUCKET = "patient-reports";
+
+        // Initialize Supabase Client directly in browser
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // DOM Elements
+        const searchForm = document.getElementById('searchForm');
+        const searchBtn = document.getElementById('searchBtn');
+        const searchBtnText = document.getElementById('searchBtnText');
+        const searchSpinner = document.getElementById('searchSpinner');
+        const searchIcon = document.getElementById('searchIcon');
+        const alertBox = document.getElementById('alertBox');
+        const alertIcon = document.getElementById('alertIcon');
+        const alertTitle = document.getElementById('alertTitle');
+        const alertMessage = document.getElementById('alertMessage');
+
+        const resultsCard = document.getElementById('resultsCard');
+        const resPatientName = document.getElementById('resPatientName');
+        const resFileId = document.getElementById('resFileId');
+        const reportsList = document.getElementById('reportsList');
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        const newSearchBtn = document.getElementById('newSearchBtn');
+
+        let currentActiveReports = [];
+
+        // Search Form Submission
+        searchForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            alertBox.classList.add('hidden');
+            resultsCard.classList.add('hidden');
+
+            const file_id = document.getElementById('file_id').value.trim().toUpperCase();
+            const first_name = document.getElementById('first_name').value.trim().toLowerCase();
+            const last_name = document.getElementById('last_name').value.trim().toLowerCase();
+
+            if (!file_id || !first_name || !last_name) return;
+
+            // UI Loading state
+            searchBtn.disabled = true;
+            searchBtnText.textContent = "Verifying Records...";
+            searchSpinner.classList.remove('hidden');
+            searchIcon.classList.add('hidden');
+
+            try {
+                // 1. Query Supabase directly
+                const { data: records, error } = await supabase
+                    .from('patient_reports')
+                    .select('*')
+                    .eq('file_id', file_id)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!records || records.length === 0) {
+                    showAlert(
+                        'Report Not Found',
+                        `No report matches Patient ID '${file_id}'. Please check your receipt.`,
+                        'red'
+                    );
+                    return;
+                }
+
+                // 2. Name Matching
+                const matchingRecords = records.filter(r => {
+                    const rowFirst = (r.first_name || '').trim().toLowerCase();
+                    const rowLast = (r.last_name || '').trim().toLowerCase();
+                    const rowFull = (r.full_name || '').trim().toLowerCase();
+                    return (rowFirst === first_name && rowLast === last_name) ||
+                           (rowFull.includes(first_name) && rowFull.includes(last_name));
+                });
+
+                if (matchingRecords.length === 0) {
+                    showAlert(
+                        'Name Mismatch',
+                        `Patient ID '${file_id}' exists, but the First or Last Name did not match our records. Please verify spelling.`,
+                        'red'
+                    );
+                    return;
+                }
+
+                // 3. Check 24-Hour (1 Day) Expiration Limit
+                const now = new Date();
+                const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+                const activeReports = matchingRecords.filter(r => {
+                    const createdAt = new Date(r.created_at);
+                    return createdAt >= twentyFourHoursAgo;
+                });
+
+                if (activeReports.length === 0) {
+                    showAlert(
+                        'Report Expired',
+                        'Your report download window has expired (available for 24 hours only). Please contact the clinic for assistance.',
+                        'amber'
+                    );
+                    return;
+                }
+
+                // 4. Render Active Reports
+                currentActiveReports = activeReports;
+                renderResults(matchingRecords[0], activeReports);
+
+            } catch (err) {
+                console.error('Supabase Search Error:', err);
+                showAlert(
+                    'Connection Error',
+                    'Could not connect to the cloud database. Please verify your internet connection.',
+                    'red'
+                );
+            } finally {
+                searchBtn.disabled = false;
+                searchBtnText.textContent = "Find Ultrasound Reports";
+                searchSpinner.classList.add('hidden');
+                searchIcon.classList.remove('hidden');
+            }
+        });
+
+        function renderResults(patientInfo, reports) {
+            resPatientName.textContent = patientInfo.full_name || `${document.getElementById('first_name').value} ${document.getElementById('last_name').value}`;
+            resFileId.textContent = patientInfo.file_id;
+            reportsList.innerHTML = '';
+
+            if (reports.length > 1) {
+                downloadAllBtn.classList.remove('hidden');
+            } else {
+                downloadAllBtn.classList.add('hidden');
+            }
+
+            reports.forEach((report, index) => {
+                const card = document.createElement('div');
+                card.className = "flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-200/80 hover:border-medical-300 transition-all";
+                
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3.5">
+                        <div class="p-3 bg-medical-100 text-medical-700 rounded-xl">
+                            <i class="fa-solid fa-file-pdf text-xl"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-sm text-slate-800">${escapeHTML(report.study_type || 'Ultrasound Scan')}</h4>
+                            <p class="text-xs text-slate-500">${report.visit_date ? 'Date: ' + escapeHTML(report.visit_date) : 'Ultrasound Scan'}</p>
+                        </div>
+                    </div>
+                    <button 
+                        id="dl-btn-${index}"
+                        onclick="downloadSingleReport('${report.storage_path}', '${escapeHTML(report.filename)}', 'dl-btn-${index}')"
+                        class="bg-medical-600 hover:bg-medical-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition-all flex items-center space-x-1.5"
+                    >
+                        <i class="fa-solid fa-download"></i>
+                        <span>Download</span>
+                    </button>
+                `;
+                reportsList.appendChild(card);
+            });
+
+            resultsCard.classList.remove('hidden');
+            resultsCard.scrollIntoView({ behavior: 'smooth' });
+
+            // If only 1 report, trigger direct download
+            if (reports.length === 1) {
+                downloadSingleReport(reports[0].storage_path, reports[0].filename, 'dl-btn-0');
+            }
+        }
+
+        async function downloadSingleReport(storagePath, filename, btnId) {
+            const btn = document.getElementById(btnId);
+            const originalHTML = btn ? btn.innerHTML : '';
+            if (btn) btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i>`;
+
+            try {
+                // Generate 60-second signed download URL from Supabase Storage
+                const { data, error } = await supabase.storage
+                    .from(SUPABASE_BUCKET)
+                    .createSignedUrl(storagePath, 60);
+
+                if (error) throw error;
+
+                if (data && data.signedUrl) {
+                    const a = document.createElement('a');
+                    a.href = data.signedUrl;
+                    a.download = filename || 'report.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                }
+            } catch (err) {
+                console.error('Download error:', err);
+                alert('Could not download PDF. Please try again or contact clinic.');
+            } finally {
+                if (btn) btn.innerHTML = originalHTML;
+            }
+        }
+
+        // Download All as ZIP (In-browser zipping)
+        downloadAllBtn.addEventListener('click', async function() {
+            if (!currentActiveReports || currentActiveReports.length === 0) return;
+
+            downloadAllBtn.disabled = true;
+            downloadAllBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Zipping...`;
+
+            try {
+                const zip = new JSZip();
+
+                for (const report of currentActiveReports) {
+                    // Download binary blob from Supabase
+                    const { data, error } = await supabase.storage
+                        .from(SUPABASE_BUCKET)
+                        .download(report.storage_path);
+
+                    if (error) continue;
+                    zip.file(report.filename || `${report.study_type}.pdf`, data);
+                }
+
+                const content = await zip.generateAsync({ type: "blob" });
+                const url = window.URL.createObjectURL(content);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${resFileId.textContent}_All_Reports.zip`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+            } catch (err) {
+                console.error('ZIP error:', err);
+                alert('Failed to bundle reports into ZIP.');
+            } finally {
+                downloadAllBtn.disabled = false;
+                downloadAllBtn.innerHTML = `<i class="fa-solid fa-file-zipper"></i> <span>Download All as ZIP</span>`;
+            }
+        });
+
+        newSearchBtn.addEventListener('click', function() {
+            resultsCard.classList.add('hidden');
+            searchForm.reset();
+            document.getElementById('file_id').focus();
+        });
+
+        function showAlert(title, message, type = 'red') {
+            alertBox.classList.remove('hidden');
+            if (type === 'amber') {
+                alertBox.className = "p-4 rounded-2xl flex items-start space-x-3 text-sm bg-amber-50 text-amber-900 border border-amber-200";
+                alertIcon.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-600"></i>`;
+            } else {
+                alertBox.className = "p-4 rounded-2xl flex items-start space-x-3 text-sm bg-red-50 text-red-900 border border-red-200";
+                alertIcon.innerHTML = `<i class="fa-solid fa-circle-exclamation text-red-600"></i>`;
+            }
+            alertTitle.textContent = title;
+            alertMessage.textContent = message;
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+    </script>
+</body>
+</html>
