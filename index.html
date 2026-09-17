@@ -61,7 +61,7 @@
         <div class="max-w-lg w-full space-y-6">
 
             <!-- Search Card -->
-            <div class="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden transition-all duration-300 hover:shadow-2xl">
+            <div id="searchCard" class="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden transition-all duration-300 hover:shadow-2xl">
                 <!-- Card Header -->
                 <div class="bg-gradient-to-r from-babyscan-700 via-babyscan-500 to-babyscan-600 px-8 py-7 text-center text-white relative">
                     <div class="inline-flex p-2.5 bg-white/10 rounded-2xl mb-2 backdrop-blur-sm">
@@ -142,7 +142,7 @@
                         </p>
                     </div>
 
-                    <!-- Non-submitting Button to strictly prevent form refreshes -->
+                    <!-- Non-submitting Button -->
                     <button 
                         type="button" 
                         id="searchBtn"
@@ -156,19 +156,20 @@
                 </form>
             </div>
 
-            <!-- Results Card (Multi-Report Support) -->
+            <!-- Results Card (Displays solely when search succeeds) -->
             <div id="resultsCard" class="hidden bg-white rounded-3xl shadow-xl border border-slate-100 p-8 space-y-6 animate-fade-in">
-                <div class="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <!-- Verified Header -->
+                <div class="border-b border-slate-100 pb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-babyscan-100 text-babyscan-800 mb-1">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-babyscan-100 text-babyscan-800 mb-1.5">
                             <i class="fa-solid fa-circle-check mr-1.5 text-xs text-babyscan-600"></i> Verified Patient
                         </span>
-                        <h3 id="resPatientName" class="text-lg font-bold text-slate-900"></h3>
-                        <p class="text-xs text-slate-500">Patient ID: <span id="resFileId" class="font-semibold text-babyscan-700"></span></p>
+                        <h3 id="resPatientName" class="text-xl font-bold text-slate-900"></h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Patient ID: <span id="resFileId" class="font-bold text-babyscan-700"></span></p>
                     </div>
                     <button 
                         id="downloadAllBtn"
-                        class="hidden text-xs bg-babyscan-50 hover:bg-babyscan-100 text-babyscan-800 border border-babyscan-200 font-bold px-4 py-2.5 rounded-xl transition-all flex items-center justify-center space-x-1.5"
+                        class="hidden text-xs bg-babyscan-50 hover:bg-babyscan-100 text-babyscan-800 border border-babyscan-200 font-bold px-4 py-2.5 rounded-xl transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm"
                     >
                         <i class="fa-solid fa-file-zipper"></i>
                         <span>Download All as ZIP</span>
@@ -185,19 +186,23 @@
 
                 <!-- Reports List Container -->
                 <div class="space-y-3">
-                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Available Scans</p>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Available Ultrasound Scans</p>
                     <div id="reportsList" class="space-y-3">
                         <!-- Injected dynamically via JS -->
                     </div>
                 </div>
 
-                <button 
-                    id="newSearchBtn"
-                    type="button"
-                    class="w-full text-center text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors pt-2"
-                >
-                    <i class="fa-solid fa-arrow-rotate-left mr-1"></i> Search for Another Patient
-                </button>
+                <!-- Back to Search Button -->
+                <div class="pt-2 border-t border-slate-100">
+                    <button 
+                        id="newSearchBtn"
+                        type="button"
+                        class="w-full text-center py-3.5 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-sm"
+                    >
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span>Search for Another Patient</span>
+                    </button>
+                </div>
             </div>
 
         </div>
@@ -290,6 +295,7 @@
         const supabase = new SupabaseDirectClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // DOM Elements
+        const searchCard = document.getElementById("searchCard");
         const searchForm = document.getElementById("searchForm");
         const searchBtn = document.getElementById("searchBtn");
         const searchBtnText = document.getElementById("searchBtnText");
@@ -321,14 +327,13 @@
         // Asynchronous execution logic
         async function runSearchAsync() {
             alertBox.classList.add("hidden");
-            resultsCard.classList.add("hidden");
 
             const file_id = (document.getElementById("file_id").value || "").trim().toUpperCase();
             const first_name = (document.getElementById("first_name").value || "").trim().toLowerCase();
             const last_name = (document.getElementById("last_name").value || "").trim().toLowerCase();
 
             if (!file_id || !first_name || !last_name) {
-                showAlert("Missing Details", "Please enter Patient ID, First Name, and Last Name.", "red");
+                showAlert("Please enter Patient ID, First Name, and Last Name", "", "red");
                 return;
             }
 
@@ -343,32 +348,19 @@
                 const records = await supabase.getReportsByFileId(file_id);
 
                 if (!records || records.length === 0) {
-                    showAlert(
-                        "Report Not Found",
-                        `No report matches Patient ID "${file_id}". Please verify the Patient ID printed on your report.`,
-                        "red"
-                    );
+                    showAlert("Report Not Found", "", "red");
                     return;
                 }
 
-                // 2. Name Matching
+                // 2. Strict Exact Name Matching (Both First Name and Last Name must match completely)
                 const matchingRecords = records.filter(r => {
                     const rowFirst = (r.first_name || "").trim().toLowerCase();
                     const rowLast = (r.last_name || "").trim().toLowerCase();
-                    const rowFull = (r.full_name || "").trim().toLowerCase();
-                    return (rowFirst === first_name && rowLast === last_name) ||
-                           (rowFirst.includes(first_name) && rowLast.includes(last_name)) ||
-                           (rowFull.includes(first_name) && rowFull.includes(last_name)) ||
-                           (rowFirst === first_name) ||
-                           (rowLast === last_name);
+                    return rowFirst === first_name && rowLast === last_name;
                 });
 
                 if (matchingRecords.length === 0) {
-                    showAlert(
-                        "Name Mismatch",
-                        `Patient ID "${file_id}" was found, but the entered name ("${document.getElementById("first_name").value} ${document.getElementById("last_name").value}") did not match our records. Please verify spelling.`,
-                        "red"
-                    );
+                    showAlert("Report Not Found", "", "red");
                     return;
                 }
 
@@ -400,7 +392,7 @@
                 }
                 const deduplicatedReports = Array.from(uniqueByStudy.values());
 
-                // 5. Render Active Reports
+                // 5. Switch to Results View (Hides Search Form completely)
                 currentActiveReports = deduplicatedReports;
                 renderResults(matchingRecords[0], deduplicatedReports);
 
@@ -457,8 +449,10 @@
                 reportsList.appendChild(card);
             });
 
+            // Smooth transition: Hide search form card, display download card
+            searchCard.classList.add("hidden");
             resultsCard.classList.remove("hidden");
-            resultsCard.scrollIntoView({ behavior: "smooth" });
+            window.scrollTo({ top: 0, behavior: "smooth" });
         }
 
         async function downloadSingleReport(storagePath, filename, btnId) {
@@ -553,23 +547,33 @@
             }
         });
 
+        // Switch back to Search View
         newSearchBtn.addEventListener("click", function() {
             resultsCard.classList.add("hidden");
+            searchCard.classList.remove("hidden");
             searchForm.reset();
+            alertBox.classList.add("hidden");
             document.getElementById("file_id").focus();
+            window.scrollTo({ top: 0, behavior: "smooth" });
         });
 
-        function showAlert(title, message, type = "red") {
+        function showAlert(title, message = "", type = "red") {
             alertBox.classList.remove("hidden");
             if (type === "amber") {
-                alertBox.className = "p-4 rounded-2xl flex items-start space-x-3 text-sm bg-amber-50 text-amber-900 border border-amber-200";
+                alertBox.className = "p-4 rounded-2xl flex items-center space-x-3 text-sm bg-amber-50 text-amber-900 border border-amber-200";
                 alertIcon.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-600"></i>`;
             } else {
-                alertBox.className = "p-4 rounded-2xl flex items-start space-x-3 text-sm bg-red-50 text-red-900 border border-red-200";
+                alertBox.className = "p-4 rounded-2xl flex items-center space-x-3 text-sm bg-red-50 text-red-900 border border-red-200";
                 alertIcon.innerHTML = `<i class="fa-solid fa-circle-exclamation text-red-600"></i>`;
             }
             alertTitle.textContent = title;
-            alertMessage.textContent = message;
+            if (message) {
+                alertMessage.textContent = message;
+                alertMessage.classList.remove("hidden");
+            } else {
+                alertMessage.textContent = "";
+                alertMessage.classList.add("hidden");
+            }
             alertBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
         }
 
