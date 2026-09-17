@@ -224,7 +224,7 @@
         const SUPABASE_BUCKET = "patient-reports";
 
         // =========================================================================
-        // 🚀 DIRECT SUPABASE CLIENT (Zero External Library Failures)
+        // 🚀 DIRECT SUPABASE CLIENT (Strict RPC Verification & Zero Scraper Risk)
         // =========================================================================
         class SupabaseDirectClient {
             constructor(baseUrl, key) {
@@ -236,14 +236,21 @@
                 };
             }
 
-            async getReportsByFileId(fileId) {
-                const url = `${this.baseUrl}/rest/v1/patient_reports?file_id=ilike.${encodeURIComponent(fileId)}&order=created_at.desc`;
+            // Secure Database RPC Call: Only returns rows when ID + First + Last name match exactly within 24h
+            async searchPatientReport(fileId, firstName, lastName) {
+                const url = `${this.baseUrl}/rest/v1/rpc/search_patient_report`;
                 const res = await fetch(url, {
-                    method: "GET",
+                    method: "POST",
                     headers: {
                         ...this.authHeaders,
+                        "Content-Type": "application/json",
                         "Accept": "application/json"
-                    }
+                    },
+                    body: JSON.stringify({
+                        p_file_id: fileId,
+                        p_first_name: firstName,
+                        p_last_name: lastName
+                    })
                 });
 
                 if (!res.ok) {
@@ -328,9 +335,9 @@
         async function runSearchAsync() {
             alertBox.classList.add("hidden");
 
-            const file_id = (document.getElementById("file_id").value || "").trim().toUpperCase();
-            const first_name = (document.getElementById("first_name").value || "").trim().toLowerCase();
-            const last_name = (document.getElementById("last_name").value || "").trim().toLowerCase();
+            const file_id = (document.getElementById("file_id").value || "").trim();
+            const first_name = (document.getElementById("first_name").value || "").trim();
+            const last_name = (document.getElementById("last_name").value || "").trim();
 
             if (!file_id || !first_name || !last_name) {
                 showAlert("Please enter Patient ID, First Name, and Last Name", "", "red");
@@ -344,47 +351,17 @@
             searchIcon.classList.add("hidden");
 
             try {
-                // 1. Query Supabase directly (case-insensitive)
-                const records = await supabase.getReportsByFileId(file_id);
+                // 1. Secure RPC function call in Supabase
+                const records = await supabase.searchPatientReport(file_id, first_name, last_name);
 
                 if (!records || records.length === 0) {
                     showAlert("Report Not Found", "", "red");
                     return;
                 }
 
-                // 2. Strict Exact Name Matching (Both First Name and Last Name must match completely)
-                const matchingRecords = records.filter(r => {
-                    const rowFirst = (r.first_name || "").trim().toLowerCase();
-                    const rowLast = (r.last_name || "").trim().toLowerCase();
-                    return rowFirst === first_name && rowLast === last_name;
-                });
-
-                if (matchingRecords.length === 0) {
-                    showAlert("Report Not Found", "", "red");
-                    return;
-                }
-
-                // 3. Check 24-Hour (1 Day) Expiration Limit
-                const now = new Date();
-                const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-                const activeReports = matchingRecords.filter(r => {
-                    const createdAt = new Date(r.created_at);
-                    return createdAt >= twentyFourHoursAgo;
-                });
-
-                if (activeReports.length === 0) {
-                    showAlert(
-                        "Report Expired",
-                        "Your report download window has expired (available for 24 hours from visit). Please contact the clinic for assistance.",
-                        "amber"
-                    );
-                    return;
-                }
-
-                // 4. Deduplicate by study_type (guarantees latest corrected scan replaces previous upload)
+                // 2. Deduplicate by study_type (guarantees latest corrected scan replaces previous upload)
                 const uniqueByStudy = new Map();
-                for (const report of activeReports) {
+                for (const report of records) {
                     const key = (report.study_type || "ULTRASOUND_SCAN").trim().toUpperCase();
                     if (!uniqueByStudy.has(key)) {
                         uniqueByStudy.set(key, report);
@@ -392,9 +369,9 @@
                 }
                 const deduplicatedReports = Array.from(uniqueByStudy.values());
 
-                // 5. Switch to Results View (Hides Search Form completely)
+                // 3. Switch to Results View (Hides Search Form completely)
                 currentActiveReports = deduplicatedReports;
-                renderResults(matchingRecords[0], deduplicatedReports);
+                renderResults(records[0], deduplicatedReports);
 
             } catch (err) {
                 console.error("Supabase Search Error:", err);
@@ -437,7 +414,7 @@
                         </div>
                     </div>
                     <button 
-                        type="button"
+                        type="button" 
                         id="dl-btn-${index}"
                         onclick="downloadSingleReport('${report.storage_path}', '${escapeHTML(report.filename)}', 'dl-btn-${index}')"
                         class="btn-babyscan text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition-all flex items-center space-x-1.5 cursor-pointer"
