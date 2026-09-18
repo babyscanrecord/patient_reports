@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- JSZip for in-browser multi-file zipping -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- PDF-Lib for in-browser PDF merging -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 
     <script>
         tailwind.config = {
@@ -167,13 +169,22 @@
                         <h3 id="resPatientName" class="text-xl font-bold text-slate-900"></h3>
                         <p class="text-xs text-slate-500 mt-0.5">Patient ID: <span id="resFileId" class="font-bold text-babyscan-700"></span></p>
                     </div>
-                    <button 
-                        id="downloadAllBtn"
-                        class="hidden text-xs bg-babyscan-50 hover:bg-babyscan-100 text-babyscan-800 border border-babyscan-200 font-bold px-4 py-2.5 rounded-xl transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm"
-                    >
-                        <i class="fa-solid fa-file-zipper"></i>
-                        <span>Download All as ZIP</span>
-                    </button>
+                    <div class="flex flex-col gap-2 w-full sm:w-auto">
+                        <button 
+                            id="downloadAllBtn"
+                            class="hidden text-xs bg-babyscan-50 hover:bg-babyscan-100 text-babyscan-800 border border-babyscan-200 font-bold px-4 py-2.5 rounded-xl transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm"
+                        >
+                            <i class="fa-solid fa-file-zipper"></i>
+                            <span>Download All as ZIP</span>
+                        </button>
+                        <button 
+                            id="downloadAllMergedPdfBtn"
+                            class="hidden text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm hover:shadow-md"
+                        >
+                            <i class="fa-solid fa-file-pdf"></i>
+                            <span>Download all as merged PDF</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Retention Reminder -->
@@ -318,6 +329,7 @@
         const resFileId = document.getElementById("resFileId");
         const reportsList = document.getElementById("reportsList");
         const downloadAllBtn = document.getElementById("downloadAllBtn");
+        const downloadAllMergedPdfBtn = document.getElementById("downloadAllMergedPdfBtn");
         const newSearchBtn = document.getElementById("newSearchBtn");
 
         let currentActiveReports = [];
@@ -432,8 +444,10 @@
 
             if (reports.length > 1) {
                 downloadAllBtn.classList.remove("hidden");
+                downloadAllMergedPdfBtn.classList.remove("hidden");
             } else {
                 downloadAllBtn.classList.add("hidden");
+                downloadAllMergedPdfBtn.classList.add("hidden");
             }
 
             reports.forEach((report, index) => {
@@ -558,6 +572,112 @@
             } finally {
                 downloadAllBtn.disabled = false;
                 downloadAllBtn.innerHTML = `<i class="fa-solid fa-file-zipper"></i> <span>Download All as ZIP</span>`;
+            }
+        });
+
+        // Download All as Merged PDF
+        downloadAllMergedPdfBtn.addEventListener("click", async function() {
+            if (!currentActiveReports || currentActiveReports.length === 0) return;
+
+            const fileId = resFileId.textContent.trim() || "REPORT";
+            const patientName = (resPatientName.textContent.trim() || "Patient").replace(/[^a-zA-Z0-9]/g, '_');
+            const sortedReports = [...currentActiveReports].sort(compareReportsByClinicalOrder);
+
+            downloadAllMergedPdfBtn.disabled = true;
+            downloadAllMergedPdfBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Preparing PDF...`;
+
+            try {
+                let downloadBlobObj = null;
+                const targetFileName = `${fileId}_${patientName}_Complete_Report.pdf`;
+
+                // 1. Check if Supabase Storage has pre-merged cloud file from folder_watcher
+                if (fileId && fileId !== "REPORT") {
+                    try {
+                        const preMergedBlob = await supabase.downloadBlob(SUPABASE_BUCKET, `reports/${fileId}_COMPLETE_REPORT.pdf`);
+                        if (preMergedBlob && preMergedBlob.size > 1000) {
+                            downloadBlobObj = preMergedBlob;
+                            console.log(`[Patient Portal] ⚡ Using pre-merged cloud PDF for ${fileId}`);
+                        }
+                    } catch (preErr) {
+                        console.log("Pre-merged report note:", preErr);
+                    }
+                }
+
+                // 2. Client-side fallback if pre-merged file is not yet available in storage
+                if (!downloadBlobObj) {
+                    const PDFLibObj = window.PDFLib || (typeof PDFLib !== "undefined" ? PDFLib : null);
+                    if (!PDFLibObj || !PDFLibObj.PDFDocument) {
+                        throw new Error("PDF processing engine is initializing. Please retry in a moment or download individual scans.");
+                    }
+
+                    const fetchPromises = sortedReports.map(async (report) => {
+                        if (!report.storage_path) return null;
+                        try {
+                            const blob = await supabase.downloadBlob(SUPABASE_BUCKET, report.storage_path);
+                            return await blob.arrayBuffer();
+                        } catch (e) {
+                            console.warn("Could not download report for merge:", report.filename, e);
+                            return null;
+                        }
+                    });
+
+                    const pdfBuffers = await Promise.all(fetchPromises);
+                    const validBuffers = pdfBuffers.filter(b => b !== null && b.byteLength > 0);
+
+                    if (validBuffers.length === 0) {
+                        throw new Error("No PDF scans could be downloaded from storage.");
+                    }
+
+                    if (validBuffers.length === 1) {
+                        downloadBlobObj = new Blob([validBuffers[0]], { type: "application/pdf" });
+                    } else {
+                        const mergedDoc = await PDFLibObj.PDFDocument.create();
+                        let totalPages = 0;
+
+                        for (const buf of validBuffers) {
+                            try {
+                                const srcDoc = await PDFLibObj.PDFDocument.load(buf, { ignoreEncryption: true });
+                                const pageIndices = srcDoc.getPageIndices();
+                                const copiedPages = await mergedDoc.copyPages(srcDoc, pageIndices);
+                                copiedPages.forEach(p => mergedDoc.addPage(p));
+                                totalPages += copiedPages.length;
+                            } catch (loadErr) {
+                                console.warn("PDF load/copy page error:", loadErr);
+                            }
+                        }
+
+                        if (totalPages === 0) {
+                            throw new Error("Unable to extract pages from the PDF documents.");
+                        }
+
+                        const mergedBytes = await mergedDoc.save();
+                        downloadBlobObj = new Blob([mergedBytes], { type: "application/pdf" });
+                    }
+                }
+
+                // 3. Trigger download or open viewer on iOS Safari
+                const url = window.URL.createObjectURL(downloadBlobObj);
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+                if (isIOS) {
+                    window.open(url, "_blank");
+                } else {
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = targetFileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => a.remove(), 2000);
+                }
+
+                setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+
+            } catch (err) {
+                console.error("Merged PDF error:", err);
+                alert("Failed to download merged PDF: " + (err.message || "Unknown error"));
+            } finally {
+                downloadAllMergedPdfBtn.disabled = false;
+                downloadAllMergedPdfBtn.innerHTML = `<i class="fa-solid fa-file-pdf"></i> <span>Download all as merged PDF</span>`;
             }
         });
 
