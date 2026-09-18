@@ -359,15 +359,43 @@
                     return;
                 }
 
-                // 2. Deduplicate by study_type (guarantees latest corrected scan replaces previous upload)
-                const uniqueByStudy = new Map();
+                // 2. Deduplicate scans & image sheets (guarantees latest corrected scan replaces previous upload)
+                const uniqueReports = [];
                 for (const report of records) {
-                    const key = (report.study_type || "ULTRASOUND_SCAN").trim().toUpperCase();
-                    if (!uniqueByStudy.has(key)) {
-                        uniqueByStudy.set(key, report);
+                    let rStudy = (report.study_type || "ULTRASOUND SCAN").trim().toUpperCase();
+                    if (rStudy === "ULTRASOUND IMAGES") {
+                        report.study_type = "2D ULTRASOUND IMAGES";
+                        rStudy = "2D ULTRASOUND IMAGES";
+                    }
+
+                    const existingIdx = uniqueReports.findIndex(item => {
+                        if (report.storage_path && item.storage_path && report.storage_path === item.storage_path) return true;
+                        if (report.filename && item.filename && report.filename === item.filename) return true;
+
+                        const itemStudy = (item.study_type || "").trim().toUpperCase();
+                        if (rStudy === itemStudy) return true;
+
+                        // 3D/4D multi-sheet normalization check
+                        const is3d_r = rStudy.includes("3D") || rStudy.includes("4D");
+                        const is3d_item = itemStudy.includes("3D") || itemStudy.includes("4D");
+                        if (is3d_r && is3d_item) {
+                            const num_r = (rStudy.match(/sheet\s*(\d+)/i) || [])[1] || "1";
+                            const num_item = (itemStudy.match(/sheet\s*(\d+)/i) || [])[1] || "1";
+                            if (num_r === num_item) return true;
+                        }
+
+                        return false;
+                    });
+
+                    if (existingIdx >= 0) {
+                        if (new Date(report.created_at) > new Date(uniqueReports[existingIdx].created_at)) {
+                            uniqueReports[existingIdx] = report;
+                        }
+                    } else {
+                        uniqueReports.push(report);
                     }
                 }
-                const deduplicatedReports = Array.from(uniqueByStudy.values());
+                const deduplicatedReports = uniqueReports;
 
                 // 3. Switch to Results View (Hides Search Form completely)
                 currentActiveReports = deduplicatedReports;
