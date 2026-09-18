@@ -395,9 +395,18 @@
                         uniqueReports.push(report);
                     }
                 }
+
+                // 3. Sort reports in strict clinical priority order:
+                // 1st: Diagnostic Scans (Target / NT / Early Target / 3rd Trimester / 2nd Opinion / Pelvic)
+                // 2nd: Echocardiography
+                // 3rd: Doppler
+                // 4th: Growth Graph / Charts
+                // 5th: 3D/4D Images (Sheet 1, Sheet 2...)
+                // 6th: 2D Images
+                uniqueReports.sort(compareReportsByClinicalOrder);
                 const deduplicatedReports = uniqueReports;
 
-                // 3. Switch to Results View (Hides Search Form completely)
+                // 4. Switch to Results View (Hides Search Form completely)
                 currentActiveReports = deduplicatedReports;
                 renderResults(records[0], deduplicatedReports);
 
@@ -580,6 +589,62 @@
                 alertMessage.classList.add("hidden");
             }
             alertBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+
+        // Clinical Priority Sorting Helpers:
+        // 1st: Diagnostic Scans (Target / NT / Early Target / 3rd Trimester / 2nd Opinion / Pelvic)
+        // 2nd: Echocardiography
+        // 3rd: Doppler
+        // 4th: Growth Graph / Charts
+        // 5th: 3D/4D Images (Sheet 1, Sheet 2...)
+        // 6th: 2D Images
+        function getReportSortRank(studyType, filename = "") {
+            const s = ((studyType || "") + " " + (filename || "")).toUpperCase();
+
+            // 2nd: Echocardiography (checked first because cardiography contains 'graph')
+            if (s.includes("ECHO")) return 200;
+
+            // 3rd: Doppler Studies
+            if (s.includes("DOPPLER")) return 300;
+
+            // 4th: Growth Graph & Charts
+            if ((s.includes("GROWTH") && (s.includes("GRAPH") || s.includes("CHART") || s.includes("CURVE"))) ||
+                s.includes("CHART") || s.includes("GRAPH") || s.includes("CURVE")) {
+                return 400;
+            }
+
+            // 5th: 3D Images All Sheets
+            if (s.includes("3D") || s.includes("4D")) {
+                const sheetMatch = s.match(/SHEET\s*(\d+)/i) || s.match(/(\d+)/);
+                const sheetNum = sheetMatch ? parseInt(sheetMatch[1], 10) : 1;
+                return 500 + Math.min(sheetNum, 99);
+            }
+
+            // 6th: 2D Images All Sheets
+            if (s.includes("2D") || s.includes("IMAGE") || s.includes("PHOTO")) {
+                const sheetMatch = s.match(/SHEET\s*(\d+)/i) || s.match(/(\d+)/);
+                const sheetNum = sheetMatch ? parseInt(sheetMatch[1], 10) : 1;
+                return 600 + Math.min(sheetNum, 99);
+            }
+
+            // 1st: Primary Diagnostic Scans (Rank 100-199)
+            if (s.includes("EARLY TARGET") || s.includes("EARLY ANOMALY")) return 130;
+            if (s.includes("TARGET") || s.includes("ANOMALY") || s.includes("LEVEL 2") || s.includes("LEVEL-2")) return 110;
+            if (s.includes("NT") || s.includes("NB") || s.includes("FIRST TRIMESTER") || s.includes("1ST TRIMESTER")) return 120;
+            if (s.includes("3RD TRIMESTER") || s.includes("THIRD TRIMESTER") || s.includes("GROWTH SCAN")) return 140;
+            if (s.includes("2ND OPINION") || s.includes("SECOND OPINION")) return 150;
+            if (s.includes("EARLY") || s.includes("VIABILITY") || s.includes("DATING")) return 160;
+            if (s.includes("PELVIC") || s.includes("PELVIS")) return 170;
+            if (s.includes("FOLLICULAR")) return 180;
+
+            return 190;
+        }
+
+        function compareReportsByClinicalOrder(a, b) {
+            const rankA = getReportSortRank(a.study_type, a.filename);
+            const rankB = getReportSortRank(b.study_type, b.filename);
+            if (rankA !== rankB) return rankA - rankB;
+            return new Date(b.created_at || 0) - new Date(a.created_at || 0);
         }
 
         function escapeHTML(str) {
