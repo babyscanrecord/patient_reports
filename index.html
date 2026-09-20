@@ -281,6 +281,7 @@
                 const url = `${this.baseUrl}/storage/v1/object/${bucket}/${cleanPath}?t=${Date.now()}`;
                 const res = await fetch(url, {
                     method: "GET",
+                    cache: "no-store",
                     headers: this.authHeaders
                 });
 
