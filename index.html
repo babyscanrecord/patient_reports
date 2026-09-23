@@ -422,11 +422,10 @@
                 // 5th: 3D/4D Images (Sheet 1, Sheet 2...)
                 // 6th: 2D Images
                 uniqueReports.sort(compareReportsByClinicalOrder);
-                const deduplicatedReports = uniqueReports;
 
                 // 4. Switch to Results View (Hides Search Form completely)
-                currentActiveReports = deduplicatedReports;
-                renderResults(records[0], deduplicatedReports);
+                currentActiveReports = uniqueReports;
+                renderResults(records[0], uniqueReports);
 
             } catch (err) {
                 console.error("Supabase Search Error:", err);
@@ -551,13 +550,28 @@
                 }
                 const zip = new JSZip();
 
-                for (const report of currentActiveReports) {
+                const fetchPromises = currentActiveReports.map(async (report) => {
                     try {
                         const blob = await supabase.downloadBlob(SUPABASE_BUCKET, report.storage_path);
-                        zip.file(report.filename || `${report.study_type}.pdf`, blob);
+                        const fname = report.filename || `${report.study_type}.pdf`;
+                        return { fname, blob };
                     } catch (e) {
                         console.warn("Could not add report to zip:", report.filename, e);
+                        return null;
                     }
+                });
+
+                const fetchedFiles = await Promise.all(fetchPromises);
+                let addedCount = 0;
+                for (const file of fetchedFiles) {
+                    if (file) {
+                        zip.file(file.fname, file.blob);
+                        addedCount++;
+                    }
+                }
+
+                if (addedCount === 0) {
+                    throw new Error("Could not download report files from cloud storage.");
                 }
 
                 const content = await zip.generateAsync({ type: "blob" });
@@ -766,7 +780,9 @@
             const rankA = getReportSortRank(a.study_type, a.filename);
             const rankB = getReportSortRank(b.study_type, b.filename);
             if (rankA !== rankB) return rankA - rankB;
-            return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+            const dateA = a.created_at || "";
+            const dateB = b.created_at || "";
+            return dateB.localeCompare(dateA);
         }
 
         function escapeHTML(str) {
