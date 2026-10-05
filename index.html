@@ -756,8 +756,10 @@
                 return 500 + Math.min(sheetNum, 99);
             }
 
-            // 6th: 2D Images All Sheets
+            // 6th: 2D Images All Sheets (FET A before FET B)
             if (s.includes("2D") || s.includes("IMAGE") || s.includes("PHOTO")) {
+                if (s.includes("FET A") || s.includes("TWIN A")) return 600;
+                if (s.includes("FET B") || s.includes("TWIN B")) return 601;
                 const sheetMatch = s.match(/SHEET\s*(\d+)/i) || s.match(/(\d+)/);
                 const sheetNum = sheetMatch ? parseInt(sheetMatch[1], 10) : 1;
                 return 600 + Math.min(sheetNum, 99);
