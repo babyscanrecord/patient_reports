@@ -4,48 +4,234 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Download Ultrasound Reports - Baby Scan Fetal Medicine and Gynec imaging</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- JSZip for in-browser multi-file zipping -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <!-- PDF-Lib for in-browser PDF merging fallback -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.9/pdf-lib.min.js"></script>
-    <script>
-        if (typeof PDFLib === 'undefined') {
-            document.write('<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.9/dist/pdf-lib.min.js"><\/script>');
-        }
-    </script>
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        babyscan: {
-                            50: '#f0fdfa',
-                            100: '#ccfbf1',
-                            200: '#99f6e4',
-                            300: '#5eead4',
-                            400: '#2dd4bf',
-                            500: '#00a389',
-                            600: '#008f77',
-                            700: '#007562',
-                            800: '#005e4f',
-                            900: '#004d41',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    <!-- Point 8: Search Engine Visibility Prevention (Medical Privacy) -->
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet">
+
+    <!-- Point 1: Content Security Policy & Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://xbxlzuptiqyeygwyotqd.supabase.co; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: blob: https://xbxlzuptiqyeygwyotqd.supabase.co; connect-src 'self' https://xbxlzuptiqyeygwyotqd.supabase.co blob:; object-src 'none'; base-uri 'self';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+
+    <!-- Point 4: Third-Party Dependencies with Subresource Integrity (SRI) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+
+    <!-- Point 5: Precompiled Production CSS (Zero Runtime Overhead, Eliminates Tailwind CDN) -->
     <style>
+        *, ::before, ::after {
+            box-sizing: border-box;
+            border-width: 0;
+            border-style: solid;
+            border-color: #e2e8f0;
+        }
+        html {
+            line-height: 1.5;
+            -webkit-text-size-adjust: 100%;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        body {
+            margin: 0;
+            line-height: inherit;
+        }
+        img, svg {
+            display: block;
+            vertical-align: middle;
+        }
+        button, input {
+            font-family: inherit;
+            font-size: 100%;
+            font-weight: inherit;
+            line-height: inherit;
+            color: inherit;
+            margin: 0;
+            padding: 0;
+        }
+        button {
+            text-transform: none;
+            background-color: transparent;
+            background-image: none;
+        }
+        h1, h2, h3, h4, p {
+            margin: 0;
+        }
+        
+        /* Layout Utilities */
+        .min-h-screen { min-height: 100vh; }
+        .w-full { width: 100%; }
+        .max-w-5xl { max-width: 64rem; }
+        .max-w-md { max-width: 28rem; }
+        .mx-auto { margin-left: auto; margin-right: auto; }
+        .flex { display: flex; }
+        .inline-flex { display: inline-flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .items-start { align-items: flex-start; }
+        .justify-between { justify-content: space-between; }
+        .justify-center { justify-content: center; }
+        .flex-1 { flex: 1 1 0%; }
+        .block { display: block; }
+        .hidden { display: none !important; }
+        
+        /* Grid */
+        .grid { display: grid; }
+        .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+        .gap-2 { gap: 0.5rem; }
+        .gap-3 { gap: 0.75rem; }
+        .gap-4 { gap: 1rem; }
+        
+        /* Spacing (Flex child spacing) */
+        .space-x-1\.5 > :not([hidden]) ~ :not([hidden]) { margin-left: 0.375rem; }
+        .space-x-2 > :not([hidden]) ~ :not([hidden]) { margin-left: 0.5rem; }
+        .space-x-2\.5 > :not([hidden]) ~ :not([hidden]) { margin-left: 0.625rem; }
+        .space-x-3 > :not([hidden]) ~ :not([hidden]) { margin-left: 0.75rem; }
+        .space-x-3\.5 > :not([hidden]) ~ :not([hidden]) { margin-left: 0.875rem; }
+        .space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.25rem; }
+        .space-y-1\.5 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.375rem; }
+        .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.75rem; }
+        .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+        .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.25rem; }
+        .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.5rem; }
+        
+        /* Padding & Margin */
+        .p-3 { padding: 0.75rem; }
+        .p-3\.5 { padding: 0.875rem; }
+        .p-4 { padding: 1rem; }
+        .p-6 { padding: 1.5rem; }
+        .p-8 { padding: 2rem; }
+        .py-0\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+        .py-2\.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+        .py-3\.5 { padding-top: 0.875rem; padding-bottom: 0.875rem; }
+        .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+        .py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+        .px-2\.5 { padding-left: 0.625rem; padding-right: 0.625rem; }
+        .px-4 { padding-left: 1rem; padding-right: 1rem; }
+        .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+        .pl-4 { padding-left: 1rem; }
+        .pl-11 { padding-left: 2.75rem; }
+        .pr-4 { padding-right: 1rem; }
+        .pt-2 { padding-top: 0.5rem; }
+        .pb-5 { padding-bottom: 1.25rem; }
+        .mt-0\.5 { margin-top: 0.125rem; }
+        .mt-1\.5 { margin-top: 0.375rem; }
+        .mb-1\.5 { margin-bottom: 0.375rem; }
+        
+        /* Positioning */
+        .relative { position: relative; }
+        .absolute { position: absolute; }
+        .inset-y-0 { top: 0px; bottom: 0px; }
+        .left-0 { left: 0px; }
+        .pointer-events-none { pointer-events: none; }
+        .cursor-pointer { cursor: pointer; }
+        
+        /* Typography */
+        .font-sans { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .font-bold { font-weight: 700; }
+        .font-semibold { font-weight: 600; }
+        .font-medium { font-weight: 500; }
+        .text-\[11px\] { font-size: 11px; }
+        .text-xs { font-size: 0.75rem; line-height: 1rem; }
+        .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+        .text-base { font-size: 1rem; line-height: 1.5rem; }
+        .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+        .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+        .uppercase { text-transform: uppercase; }
+        .tracking-wide { letter-spacing: 0.025em; }
+        .tracking-wider { letter-spacing: 0.05em; }
+        .leading-relaxed { line-height: 1.625; }
+        .text-center { text-align: center; }
+        .text-left { text-align: left; }
+        .opacity-90 { opacity: 0.9; }
+        
+        /* Borders & Radius */
+        .border { border-width: 1px; }
+        .border-b { border-bottom-width: 1px; }
+        .border-t { border-top-width: 1px; }
+        .border-slate-100 { border-color: #f1f5f9; }
+        .border-slate-200 { border-color: #e2e8f0; }
+        .border-slate-200\/80 { border-color: rgba(226, 232, 240, 0.8); }
+        .border-babyscan-200 { border-color: #99f6e4; }
+        .border-amber-200 { border-color: #fde68a; }
+        .border-red-200 { border-color: #fecaca; }
+        .rounded-xl { border-radius: 0.75rem; }
+        .rounded-2xl { border-radius: 1rem; }
+        .rounded-3xl { border-radius: 1.5rem; }
+        .rounded-full { border-radius: 9999px; }
+        
+        /* Colors */
+        .bg-slate-50 { background-color: #f8fafc; }
+        .bg-slate-100 { background-color: #f1f5f9; }
+        .hover\:bg-slate-200:hover { background-color: #e2e8f0; }
+        .bg-white { background-color: #ffffff; }
+        .text-slate-900 { color: #0f172a; }
+        .text-slate-800 { color: #1e293b; }
+        .text-slate-700 { color: #334155; }
+        .text-slate-600 { color: #475569; }
+        .text-slate-500 { color: #64748b; }
+        .text-slate-400 { color: #94a3b8; }
+        .text-white { color: #ffffff; }
+        
+        .bg-babyscan-50 { background-color: #f0fdfa; }
+        .bg-babyscan-100 { background-color: #ccfbf1; }
+        .hover\:bg-babyscan-100:hover { background-color: #ccfbf1; }
+        .text-babyscan-600 { color: #008f77; }
+        .text-babyscan-700 { color: #007562; }
+        .text-babyscan-800 { color: #005e4f; }
+        .text-babyscan-900 { color: #004d41; }
+        .hover\:border-babyscan-300:hover { border-color: #5eead4; }
+        
+        .bg-amber-50 { background-color: #fffbeb; }
+        .text-amber-600 { color: #d97706; }
+        .text-amber-900 { color: #78350f; }
+        
+        .bg-red-50 { background-color: #fef2f2; }
+        .text-red-500 { color: #ef4444; }
+        .text-red-600 { color: #dc2626; }
+        .text-red-900 { color: #7f1d1d; }
+        
+        .bg-emerald-600 { background-color: #059669; }
+        .hover\:bg-emerald-700:hover { background-color: #047857; }
+        
+        /* Shadows */
+        .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+        .shadow { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1); }
+        .shadow-md { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); }
+        .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1); }
+        .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+        .hover\:shadow:hover { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1); }
+        .hover\:shadow-md:hover { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); }
+        .hover\:shadow-xl:hover { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+        
+        /* Transitions & Focus */
+        .transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+        .focus\:outline-none:focus { outline: 2px solid transparent; outline-offset: 2px; }
+        .focus\:bg-white:focus { background-color: #ffffff; }
+        .focus\:ring-2:focus {
+            box-shadow: 0 0 0 2px #fff, 0 0 0 4px #00a389;
+        }
+        
+        /* Responsive */
+        @media (min-width: 640px) {
+            .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .sm\:flex-row { flex-direction: row; }
+            .sm\:items-center { align-items: center; }
+            .sm\:justify-between { justify-content: space-between; }
+            .sm\:w-auto { width: auto; }
+        }
+        
+        /* Custom Button */
         .btn-babyscan {
             background: linear-gradient(135deg, #00a389 0%, #007562 100%);
         }
         .btn-babyscan:hover {
             background: linear-gradient(135deg, #008f77 0%, #005e4f 100%);
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
@@ -90,7 +276,7 @@
                         </div>
                     </div>
 
-                    <!-- Input: Patient ID -->
+                    <!-- Input: Patient ID (Point 10: Strict Client Validation) -->
                     <div class="space-y-1.5">
                         <label for="file_id" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
                             Patient ID <span class="text-red-500">*</span>
@@ -103,14 +289,20 @@
                                 type="text" 
                                 id="file_id" 
                                 required
-                                placeholder="Enter Patient ID" 
+                                maxlength="15"
+                                pattern="[A-Za-z0-9\-_]+"
+                                autocomplete="off"
+                                autocapitalize="characters"
+                                spellcheck="false"
+                                placeholder="Enter Patient ID (e.g. B1146)" 
+                                oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9\-_]/g, '')"
                                 onkeydown="if(event.key==='Enter'){executeSearch(event); return false;}"
                                 class="block w-full pl-11 pr-4 py-3.5 border border-slate-200 rounded-2xl bg-slate-50 uppercase text-slate-900 text-sm font-semibold tracking-wide placeholder-normal focus:outline-none focus:ring-2 focus:ring-babyscan-500 focus:bg-white transition-all"
                             >
                         </div>
                     </div>
 
-                    <!-- First & Last Name Grid -->
+                    <!-- First & Last Name Grid (Point 10: Strict Constraints) -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="space-y-1.5">
                             <label for="first_name" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
@@ -120,7 +312,12 @@
                                 type="text" 
                                 id="first_name" 
                                 required
+                                maxlength="40"
+                                pattern="[A-Za-z\s\.\'\-]+"
+                                autocomplete="given-name"
+                                spellcheck="false"
                                 placeholder="Enter first name" 
+                                oninput="this.value = this.value.replace(/[^A-Za-z\s\.\'\-]/g, '')"
                                 onkeydown="if(event.key==='Enter'){executeSearch(event); return false;}"
                                 class="block w-full px-4 py-3.5 border border-slate-200 rounded-2xl bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-babyscan-500 focus:bg-white transition-all"
                             >
@@ -134,7 +331,12 @@
                                 type="text" 
                                 id="last_name" 
                                 required
+                                maxlength="40"
+                                pattern="[A-Za-z\s\.\'\-]+"
+                                autocomplete="family-name"
+                                spellcheck="false"
                                 placeholder="Enter last name" 
+                                oninput="this.value = this.value.replace(/[^A-Za-z\s\.\'\-]/g, '')"
                                 onkeydown="if(event.key==='Enter'){executeSearch(event); return false;}"
                                 class="block w-full px-4 py-3.5 border border-slate-200 rounded-2xl bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-babyscan-500 focus:bg-white transition-all"
                             >
@@ -340,7 +542,86 @@
 
         let currentActiveReports = [];
 
-        // Synchronous interceptor to strictly prevent any HTML form page refresh
+        // =========================================================================
+        // ⚡ POINT 6: LAZY LOAD HEAVY CLIENT LIBRARIES (JSZip & PDF-Lib on Demand)
+        // =========================================================================
+        let jszipLoadPromise = null;
+        function ensureJSZip() {
+            if (typeof JSZip !== "undefined") return Promise.resolve();
+            if (jszipLoadPromise) return jszipLoadPromise;
+            jszipLoadPromise = new Promise((resolve, reject) => {
+                const s = document.createElement("script");
+                s.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+                s.integrity = "sha512-XMVd28F1oH/O71fKEHdDUCZhrP61+LQLxJO16l1PWHv562WSOJVCUOwZNewhJxwtK6UBitAKGoWWNgFtLuvvGg==";
+                s.crossOrigin = "anonymous";
+                s.onload = () => resolve();
+                s.onerror = () => {
+                    const fallback = document.createElement("script");
+                    fallback.src = "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
+                    fallback.onload = () => resolve();
+                    fallback.onerror = () => reject(new Error("Unable to load ZIP library. Please check your internet connection."));
+                    document.head.appendChild(fallback);
+                };
+                document.head.appendChild(s);
+            });
+            return jszipLoadPromise;
+        }
+
+        let pdflibLoadPromise = null;
+        function ensurePDFLib() {
+            if (typeof PDFLib !== "undefined" || (window.PDFLib && window.PDFLib.PDFDocument)) return Promise.resolve();
+            if (pdflibLoadPromise) return pdflibLoadPromise;
+            pdflibLoadPromise = new Promise((resolve, reject) => {
+                const s = document.createElement("script");
+                s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.9/pdf-lib.min.js";
+                s.crossOrigin = "anonymous";
+                s.onload = () => resolve();
+                s.onerror = () => {
+                    const fallback = document.createElement("script");
+                    fallback.src = "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.9/dist/pdf-lib.min.js";
+                    fallback.onload = () => resolve();
+                    fallback.onerror = () => reject(new Error("Unable to load PDF merging library. Please check your internet connection."));
+                    document.head.appendChild(fallback);
+                };
+                document.head.appendChild(s);
+            });
+            return pdflibLoadPromise;
+        }
+
+        // =========================================================================
+        // 🔒 POINT 9: 5-MINUTE INACTIVITY AUTO-RESET (Patient Privacy Protection)
+        // =========================================================================
+        const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+        let inactivityTimer = null;
+
+        function resetInactivityTimer() {
+            if (inactivityTimer) clearTimeout(inactivityTimer);
+            if (resultsCard && !resultsCard.classList.contains("hidden")) {
+                inactivityTimer = setTimeout(handleInactivityTimeout, INACTIVITY_TIMEOUT_MS);
+            }
+        }
+
+        function handleInactivityTimeout() {
+            if (!resultsCard || resultsCard.classList.contains("hidden")) return;
+            currentActiveReports = [];
+            resPatientName.textContent = "";
+            resFileId.textContent = "";
+            reportsList.innerHTML = "";
+            resultsCard.classList.add("hidden");
+            searchCard.classList.remove("hidden");
+            searchForm.reset();
+            showAlert("Session Expired", "For patient privacy and medical data security, your session was automatically closed after 5 minutes of inactivity.", "amber");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        // User activity listeners
+        ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
+            window.addEventListener(evt, resetInactivityTimer, { passive: true });
+        });
+
+        // =========================================================================
+        // 🔍 SEARCH & VALIDATION LOGIC (Points 7 & 10)
+        // =========================================================================
         function executeSearch(e) {
             if (e && e.preventDefault) {
                 e.preventDefault();
@@ -349,16 +630,25 @@
             return false;
         }
 
-        // Asynchronous execution logic
         async function runSearchAsync() {
             alertBox.classList.add("hidden");
 
-            const file_id = (document.getElementById("file_id").value || "").trim();
-            const first_name = (document.getElementById("first_name").value || "").trim();
-            const last_name = (document.getElementById("last_name").value || "").trim();
+            const rawFileId = (document.getElementById("file_id").value || "").trim();
+            const rawFirstName = (document.getElementById("first_name").value || "").trim();
+            const rawLastName = (document.getElementById("last_name").value || "").trim();
+
+            // Point 10: Strict Client-Side Input Sanitization & Validation
+            const file_id = rawFileId.toUpperCase().replace(/[^A-Z0-9\-_]/g, "");
+            const first_name = rawFirstName.replace(/[^A-Za-z\s\.\'\-]/g, "").trim();
+            const last_name = rawLastName.replace(/[^A-Za-z\s\.\'\-]/g, "").trim();
 
             if (!file_id || !first_name || !last_name) {
                 showAlert("Please enter Patient ID, First Name, and Last Name", "", "red");
+                return;
+            }
+
+            if (file_id.length > 15 || first_name.length > 40 || last_name.length > 40) {
+                showAlert("Input length exceeds allowed limits", "Please double-check your entered Patient ID and Name.", "red");
                 return;
             }
 
@@ -373,7 +663,7 @@
                 const records = await supabase.searchPatientReport(file_id, first_name, last_name);
 
                 if (!records || records.length === 0) {
-                    showAlert("Report Not Found", "", "red");
+                    showAlert("Report Not Found", "No reports matched the provided Patient ID and Name. Please check spelling or contact clinic.", "red");
                     return;
                 }
 
@@ -414,13 +704,7 @@
                     }
                 }
 
-                // 3. Sort reports in strict clinical priority order:
-                // 1st: Diagnostic Scans (Target / NT / Early Target / 3rd Trimester / 2nd Opinion / Pelvic)
-                // 2nd: Echocardiography
-                // 3rd: Doppler
-                // 4th: Growth Graph / Charts
-                // 5th: 3D/4D Images (Sheet 1, Sheet 2...)
-                // 6th: 2D Images
+                // 3. Sort reports in strict clinical priority order
                 uniqueReports.sort(compareReportsByClinicalOrder);
 
                 // 4. Switch to Results View (Hides Search Form completely)
@@ -428,10 +712,10 @@
                 renderResults(records[0], uniqueReports);
 
             } catch (err) {
-                console.error("Supabase Search Error:", err);
+                // Point 7: Production error handling without leaking stack traces
                 showAlert(
                     "Connection Error",
-                    `Could not connect to database: ${err.message || "Please check your internet connection."}`,
+                    "Could not connect to report service. Please check your internet connection and try again.",
                     "red"
                 );
             } finally {
@@ -485,10 +769,12 @@
             // Smooth transition: Hide search form card, display download card
             searchCard.classList.add("hidden");
             resultsCard.classList.remove("hidden");
+            resetInactivityTimer();
             window.scrollTo({ top: 0, behavior: "smooth" });
         }
 
         async function downloadSingleReport(storagePath, filename, btnId) {
+            resetInactivityTimer();
             const btn = document.getElementById(btnId);
             const originalHTML = btn ? btn.innerHTML : "";
             if (btn) {
@@ -512,7 +798,6 @@
                 }, 2000);
 
             } catch (err) {
-                console.warn("Direct blob download failed, trying signed URL fallback...", err);
                 try {
                     // Method 2 (Fallback): Signed URL
                     const signedUrl = await supabase.createSignedUrl(SUPABASE_BUCKET, storagePath, 300);
@@ -525,7 +810,6 @@
                     a.click();
                     setTimeout(() => a.remove(), 2000);
                 } catch (fallbackErr) {
-                    console.error("Signed URL fallback error:", fallbackErr);
                     const publicUrl = supabase.getPublicUrl(SUPABASE_BUCKET, storagePath);
                     window.open(publicUrl, "_blank");
                 }
@@ -537,17 +821,16 @@
             }
         }
 
-        // Download All as ZIP
+        // Download All as ZIP (Lazy-loads JSZip)
         downloadAllBtn.addEventListener("click", async function() {
+            resetInactivityTimer();
             if (!currentActiveReports || currentActiveReports.length === 0) return;
 
             downloadAllBtn.disabled = true;
             downloadAllBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Zipping...`;
 
             try {
-                if (typeof JSZip === "undefined") {
-                    throw new Error("ZIP tool is initializing. Please download scans individually.");
-                }
+                await ensureJSZip();
                 const zip = new JSZip();
 
                 const fetchPromises = currentActiveReports.map(async (report) => {
@@ -556,7 +839,6 @@
                         const fname = report.filename || `${report.study_type}.pdf`;
                         return { fname, blob };
                     } catch (e) {
-                        console.warn("Could not add report to zip:", report.filename, e);
                         return null;
                     }
                 });
@@ -587,16 +869,16 @@
                 }, 2000);
 
             } catch (err) {
-                console.error("ZIP error:", err);
-                alert("Failed to create ZIP: " + err.message);
+                alert("Failed to create ZIP: " + (err.message || "Please check your network."));
             } finally {
                 downloadAllBtn.disabled = false;
                 downloadAllBtn.innerHTML = `<i class="fa-solid fa-file-zipper"></i> <span>Download All as ZIP</span>`;
             }
         });
 
-        // Download All as Merged PDF
+        // Download All as Merged PDF (Checks pre-merged cloud file or lazy-loads PDF-Lib)
         downloadAllMergedPdfBtn.addEventListener("click", async function() {
+            resetInactivityTimer();
             if (!currentActiveReports || currentActiveReports.length === 0) return;
 
             const fileId = resFileId.textContent.trim() || "REPORT";
@@ -616,18 +898,18 @@
                         const preMergedBlob = await supabase.downloadBlob(SUPABASE_BUCKET, `reports/${fileId}_COMPLETE_REPORT.pdf`);
                         if (preMergedBlob && preMergedBlob.size > 1000) {
                             downloadBlobObj = preMergedBlob;
-                            console.log(`[Patient Portal] ⚡ Using pre-merged cloud PDF for ${fileId}`);
                         }
                     } catch (preErr) {
-                        console.log("Pre-merged report note:", preErr);
+                        // Pre-merged file optional; fallback to client-side merge below
                     }
                 }
 
                 // 2. Client-side fallback if pre-merged file is not yet available in storage
                 if (!downloadBlobObj) {
+                    await ensurePDFLib();
                     const PDFLibObj = window.PDFLib || (typeof PDFLib !== "undefined" ? PDFLib : null);
                     if (!PDFLibObj || !PDFLibObj.PDFDocument) {
-                        throw new Error("PDF processing engine is initializing. Please retry in a moment or download individual scans.");
+                        throw new Error("PDF processing engine is initializing. Please download individual scans or try again.");
                     }
 
                     const fetchPromises = sortedReports.map(async (report) => {
@@ -636,7 +918,6 @@
                             const blob = await supabase.downloadBlob(SUPABASE_BUCKET, report.storage_path);
                             return await blob.arrayBuffer();
                         } catch (e) {
-                            console.warn("Could not download report for merge:", report.filename, e);
                             return null;
                         }
                     });
@@ -662,7 +943,7 @@
                                 copiedPages.forEach(p => mergedDoc.addPage(p));
                                 totalPages += copiedPages.length;
                             } catch (loadErr) {
-                                console.warn("PDF load/copy page error:", loadErr);
+                                // Skip unreadable document
                             }
                         }
 
@@ -689,7 +970,6 @@
                 }, 2000);
 
             } catch (err) {
-                console.error("Merged PDF error:", err);
                 alert("Failed to download merged PDF: " + (err.message || "Unknown error"));
             } finally {
                 downloadAllMergedPdfBtn.disabled = false;
@@ -699,6 +979,8 @@
 
         // Switch back to Search View
         newSearchBtn.addEventListener("click", function() {
+            if (inactivityTimer) clearTimeout(inactivityTimer);
+            currentActiveReports = [];
             resultsCard.classList.add("hidden");
             searchCard.classList.remove("hidden");
             searchForm.reset();
